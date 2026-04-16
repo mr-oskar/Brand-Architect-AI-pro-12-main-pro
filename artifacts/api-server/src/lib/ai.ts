@@ -277,7 +277,8 @@ export async function generateCampaign(
   brandKit: BrandKit,
   brief?: string,
   postCount: number = 7,
-  platforms: string[] = ["instagram"]
+  platforms: string[] = ["instagram"],
+  trendContext?: string
 ): Promise<CampaignData> {
   const count = Math.min(Math.max(Math.round(postCount), 1), 14);
   const platformList = platforms.length > 0 ? platforms : ["instagram"];
@@ -287,11 +288,23 @@ export async function generateCampaign(
     ? `\n\nCRITICAL campaign brief from client (follow this closely):\n"${brief}"\n`
     : "";
 
+  const trendSection = trendContext
+    ? `\n\n${trendContext}\n\nIMPORTANT: Integrate relevant trends, keywords, and current cultural moments above into the campaign strategy and post content. Reference real trends to make posts feel timely and relevant. Apply the modern design best practices in the image prompts.`
+    : "";
+
   const palette = brandKit.colorPalette;
   const style = brandKit.visualStyle;
   const platformStr = platformList.join(", ");
 
-  const systemPrompt = `You are a world-class social media strategist and copywriter with 15 years experience creating viral campaigns for global brands. You create complete ${count}-day multi-platform marketing campaigns that are specific, creative, psychologically sophisticated, and ready to publish. Every post you write is UNIQUE and TAILORED to the exact brand. You ALWAYS respond with valid JSON only — no markdown, no explanation, just the raw JSON object.`;
+  const systemPrompt = `You are a world-class social media strategist, creative director, and brand consultant with 15 years experience building viral campaigns for global brands. You have deep knowledge of the latest design trends, visual aesthetics, and digital marketing best practices for 2025-2026. You create complete ${count}-day multi-platform marketing campaigns that are specific, creative, culturally relevant, and trend-aware. Every post you write is UNIQUE, TAILORED, and MODERN. You ALWAYS respond with valid JSON only — no markdown, no explanation, just the raw JSON object.`;
+
+  const imageStyleNotes = style === "luxury"
+    ? "editorial aspirational mood, magazine-quality lighting, elegant negative space, premium textures, soft film grain, fashion-forward composition"
+    : style === "tech"
+    ? "clean futuristic aesthetic, gradient overlays, glowing UI elements, dark-mode vibes, neon accents, isometric or abstract tech visuals"
+    : style === "bold"
+    ? "high-contrast energy, saturated colors, dynamic diagonal compositions, street-art influence, punchy and loud, graphic shapes"
+    : "breathing room, intentional white space, refined typography hierarchy, quiet confidence, Scandinavian minimal influence";
 
   const userPrompt = `Create a complete ${count}-day social media campaign for this brand across platforms: ${platformStr}
 
@@ -308,17 +321,18 @@ Primary Color: ${palette.primary}
 Secondary Color: ${palette.secondary}
 Accent Color: ${palette.accent}
 ${briefContext}
+${trendSection}
 
 Return a JSON object with exactly this structure:
 {
-  "title": "Compelling campaign title that captures the campaign theme",
-  "strategy": "3-4 sentence strategic overview: what narrative arc this campaign follows, why these days are sequenced this way, what psychological journey the audience goes on, expected outcomes",
+  "title": "Compelling campaign title that captures the campaign theme and references current cultural moment",
+  "strategy": "3-4 sentence strategic overview: what narrative arc this campaign follows, how it leverages current trends, what psychological journey the audience goes on, expected outcomes",
   "days": [
     {
       "day": 1,
       "objective": "Specific objective for day 1",
-      "postConcept": "Specific creative concept for this post",
-      "marketingAngle": "The psychological/marketing angle (e.g., scarcity, social proof, transformation, authority)",
+      "postConcept": "Specific creative concept for this post — tie it to a current trend or cultural moment when relevant",
+      "marketingAngle": "The psychological/marketing angle (e.g., scarcity, social proof, transformation, authority, trend-jacking)",
       "cta": "Specific, compelling call to action"
     }
     ... (${count} days total)
@@ -327,24 +341,27 @@ Return a JSON object with exactly this structure:
     {
       "day": 1,
       "platform": "${platformList[0]}",
-      "hook": "Scroll-stopping opening line — specific, provocative, or surprising. Under 12 words. Creates curiosity or urgency.",
-      "caption": "Full platform-appropriate caption (3-5 paragraphs). Match the brand's exact tone. Use line breaks. Make it conversational and valuable. End with the CTA naturally embedded.",
+      "hook": "Scroll-stopping opening line — reference a trend, use a surprising stat, or open a pattern interrupt. Under 12 words.",
+      "caption": "Full platform-appropriate caption (3-5 paragraphs). Match the brand's exact tone. Weave in relevant trends naturally. Use line breaks. End with the CTA.",
       "cta": "Specific call to action that matches the day's objective",
-      "hashtags": ["#relevant1", "#relevant2", "#relevant3", "#niche4", "#brand5"],
-      "imagePrompt": "DALL-E/Midjourney prompt: [specific scene]. Art direction: ${style} aesthetic, color palette dominated by ${palette.primary} and ${palette.secondary}, professional commercial photography, cinematic lighting, ultra high quality. Composition: subject occupies left 70% of frame, top-right 20% kept clean (minimal background) for logo placement. Style notes: ${style === "luxury" ? "editorial, aspirational, perfect lighting" : style === "tech" ? "clean, modern, blue-tinted, futuristic" : style === "bold" ? "high contrast, vibrant, energetic" : "clean, minimal, breathing room, neutral tones"}. NO text, NO logos, NO watermarks in image. 16:9 ratio, 1024x1024."
+      "hashtags": ["#relevant1", "#relevant2", "#trending3", "#niche4", "#brand5"],
+      "imagePrompt": "Professional commercial visual for ${companyName}: [describe the specific scene in detail]. Visual direction: ${style} aesthetic — ${imageStyleNotes}. Color palette: ${palette.primary} as hero color, ${palette.secondary} supporting, ${palette.accent} for accents. Lighting: [specify mood-appropriate lighting]. Composition: [describe layout — hero subject placement, supporting elements, depth]. Typography integration: [specify if text/headline should be part of the image, what it says, and its style — bold sans-serif, script, display font, etc.]. Include brand name or key message text in the design if appropriate for the concept. Logo placement area: reserve clean space in [corner/area] if logo overlay is needed. Quality: ultra-high resolution, commercial advertising quality, 16:9 ratio."
     }
     ... (${count} posts total, one per day)
   ]
 }
 
 Rules:
-- Every hook must be DIFFERENT in structure (question, statistic, statement, story-start, counter-intuitive claim, etc.)
+- Every hook must be DIFFERENT in structure (question, statistic, statement, story-start, counter-intuitive claim, trend reference, etc.)
 - Every caption must be UNIQUE — different length, different angle, different story
-- Image prompts must create scenes that visually reinforce the day's concept
-- Hashtags must mix popular (#Marketing 2M+), niche (#${industry.replace(/\s+/g, "")}), and brand-specific tags
+- ACTIVELY incorporate trends from the trend context into hooks, captions, and concepts
+- Image prompts must describe SPECIFIC, DETAILED scenes that visually reinforce the day's concept
+- Image prompts should specify whether text/typography is part of the design and what it says
+- Hashtags must mix popular (#Marketing 2M+), trending, niche (#${industry.replace(/\s+/g, "")}), and brand-specific tags
 - Platform "${platformList[0]}" tone: ${platformList[0] === "linkedin" ? "professional, thought-leadership, no slang" : platformList[0] === "twitter" ? "punchy, conversational, under 280 chars for hook" : platformList[0] === "facebook" ? "community-focused, longer stories" : "visual-first, engaging, uses emojis appropriately"}
+- Apply 2025-2026 design best practices: bold typography, authentic visuals, trend-aware aesthetics
 
-Make every post SPECIFIC to ${companyName} — no generic content.`;
+Make every post SPECIFIC to ${companyName} and CULTURALLY RELEVANT to current trends — no generic content.`;
 
   const raw = await callAI(systemPrompt, userPrompt, 8192);
 
@@ -379,7 +396,7 @@ function buildFallbackCampaign(companyName: string, industry: string, brandKit: 
     caption: `${d.postConcept}\n\nAt ${companyName}, we believe every ${industry} business deserves ${d.objective}.\n\nHere's what that means in practice:\n\n→ Real results, not promises\n→ Strategy backed by data\n→ A partner who is invested in your growth\n\n${d.cta} — link in bio.`,
     cta: d.cta,
     hashtags: [`#${companyName.replace(/\s+/g, "")}`, `#${industry.replace(/\s+/g, "")}`, "#Marketing", "#BusinessGrowth", "#Strategy"],
-    imagePrompt: `Commercial advertising photography: ${d.postConcept} scene. ${style} aesthetic, ${palette.primary} color as dominant accent, ${palette.secondary} as supporting tone. Professional cinematic lighting, ultra high quality. Composition: subject left 70% of frame, clean top-right corner for logo placement. NO text, NO logos, NO watermarks. 16:9 ratio.`,
+    imagePrompt: `Commercial advertising photography: ${d.postConcept} scene. ${style} aesthetic, ${palette.primary} color as dominant accent, ${palette.secondary} as supporting tone. Professional cinematic lighting, ultra high quality. Bold typography overlay with key message or brand name "${companyName}". 16:9 ratio.`,
   }));
 
   return {
@@ -422,7 +439,7 @@ Return ONLY a JSON object:
   "caption": "fresh caption from a completely different angle (3-4 paragraphs, line breaks)",
   "cta": "a different but compelling call to action",
   "hashtags": ["#new1", "#new2", "#new3", "#different4", "#fresh5"],
-  "imagePrompt": "different scene from original: [scene], ${style} aesthetic, ${primaryColor} color accent, cinematic lighting, no text no logos, clean top-right corner for logo placement, 16:9 ultra-high quality"
+  "imagePrompt": "Professional commercial visual — completely different scene from original: [describe scene in detail]. ${style} aesthetic, ${primaryColor} as dominant color accent. Specify typography: [include brand name, key headline, or tagline text in the design if it strengthens the concept — describe font style and placement]. Cinematic lighting, ultra-high quality commercial photography, 16:9 ratio. Reserve clean area if logo overlay is needed."
 }`;
 
   try {
@@ -440,7 +457,7 @@ Return ONLY a JSON object:
       caption: `The ${industry} landscape has changed dramatically.\n\nWhile most brands are still using yesterday's playbook, ${companyName} has been quietly building something different.\n\nA smarter approach. A more human approach. One that actually works in 2026.\n\nReady to see what's possible? The link in bio has the answer.`,
       cta: "Discover the difference",
       hashtags: [`#${companyName.replace(/\s+/g, "")}`, `#${industry.replace(/\s+/g, "")}Trends`, "#Innovation", "#BusinessStrategy", "#Results"],
-      imagePrompt: `Commercial photography: abstract modern concept for ${industry}. ${style} aesthetic, ${primaryColor} dominant color, studio lighting, clean top-right corner. No text, no logos. Ultra high quality 16:9.`,
+      imagePrompt: `Commercial photography: abstract modern concept for ${industry}. ${style} aesthetic, ${primaryColor} dominant color, studio lighting. Bold typography with the brand name prominently displayed. Ultra high quality 16:9.`,
     };
   }
 }

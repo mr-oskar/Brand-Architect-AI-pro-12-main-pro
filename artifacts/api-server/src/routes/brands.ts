@@ -13,6 +13,7 @@ import {
   GetBrandStatsParams,
 } from "@workspace/api-zod";
 import { generateBrandKit, generateCampaign, generateBrandStory, generateLongFormContent, type BrandKit } from "../lib/ai";
+import { fetchIndustryTrends } from "../lib/trends";
 import { asyncHandler } from "../lib/asyncHandler";
 
 const router: IRouter = Router();
@@ -208,8 +209,12 @@ router.post("/brands/:id/generate-campaign", asyncHandler(async (req, res) => {
     await db.update(brandsTable).set({ brandKit: kit, status: "kit_ready" }).where(eq(brandsTable.id, params.data.id));
   }
 
+  // Fetch live industry trends and design insights before generating the campaign
+  const trendData = await fetchIndustryTrends(brand.industry, brief);
+
   const campaignData = await generateCampaign(
-    brand.companyName, brand.companyDescription, brand.industry, kit, brief, postCount, platforms
+    brand.companyName, brand.companyDescription, brand.industry, kit, brief, postCount, platforms,
+    trendData.summary
   );
 
   const [campaign] = await db

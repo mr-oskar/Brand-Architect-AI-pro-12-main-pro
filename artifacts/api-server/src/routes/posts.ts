@@ -193,7 +193,7 @@ Return ONLY valid JSON:
   "caption": "fresh full caption from a completely different angle (3-5 paragraphs, line breaks, ends with CTA naturally embedded)",
   "cta": "different compelling call to action",
   "hashtags": ["#tag1", "#tag2", "#tag3", "#tag4", "#tag5"],
-  "imagePrompt": "different scene: [describe], ${style} aesthetic, ${primaryColor} dominant color accent, cinematic lighting, composition: subject in left 75% of frame, clean top-right corner for logo, no text no logos in image, 16:9 ultra-high quality"
+  "imagePrompt": "Professional commercial visual — completely different scene: [describe scene in detail]. ${style} aesthetic, ${primaryColor} dominant color accent, cinematic lighting. Typography: [specify if brand name, headline, or key message text should appear in design — include what it says and font style]. 16:9 ultra-high quality, reserve area for logo if needed."
 }`;
 
   let newContent: { hook: string; caption: string; cta: string; hashtags: string[]; imagePrompt: string };
@@ -213,7 +213,7 @@ Return ONLY valid JSON:
       caption: `The truth about ${brand.companyName} is simpler than most people expect.\n\nWe do not chase trends. We build systems.\n\nSystems that generate consistent results for businesses who are serious about growth in ${brand.industry}.\n\nIf that is you — the link in bio is waiting.`,
       cta: "See how we work",
       hashtags: [`#${brand.companyName.replace(/\s+/g, "")}`, `#${brand.industry.replace(/\s+/g, "")}`, "#GrowthStrategy", "#Results", "#BusinessSuccess"],
-      imagePrompt: `Abstract commercial concept: growth and innovation in ${brand.industry}. ${style} aesthetic, ${primaryColor} color accent, studio lighting, clean top-right corner for logo, no text, no logos. 16:9 ultra-high quality.`,
+      imagePrompt: `Abstract commercial concept: growth and innovation in ${brand.industry}. ${style} aesthetic, ${primaryColor} color accent, studio lighting. Bold typographic overlay with brand message. 16:9 ultra-high quality.`,
     };
   }
 
