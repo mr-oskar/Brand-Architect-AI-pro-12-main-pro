@@ -9,10 +9,13 @@ import {
   ArrowLeft, Calendar, Edit3, Check, X, RefreshCw, Loader2, Hash, Image as ImageIcon,
   Megaphone, Sparkles, Wand2, Copy, CheckCircle2, Download, FileText,
   Mail, Newspaper, ChevronDown, TestTube2, Instagram, Linkedin, Twitter, Facebook,
-  ZoomIn, BarChart2, Target, Settings2, Zap,
+  ZoomIn, BarChart2, Target, Settings2, Zap, Send, Clock, Share2,
 } from "lucide-react";
 import type { SocialPost } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { ScheduleCampaignDialog } from "@/components/ScheduleCampaignDialog";
+
+const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -281,7 +284,14 @@ function ImageGenDialog({
 
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
-function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, onRegenerate, onGenerateImage }: {
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  draft:     { label: "Draft",     cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+  scheduled: { label: "Scheduled", cls: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" },
+  published: { label: "Published", cls: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300" },
+  failed:    { label: "Failed",    cls: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+};
+
+function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, onRegenerate, onGenerateImage, onPublishNow, publishingNow }: {
   post: SocialPost;
   brandLogoUrl?: string | null;
   brandName: string;
@@ -289,6 +299,8 @@ function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, on
   onSave: (id: number, data: Partial<SocialPost>) => Promise<void>;
   onRegenerate: (id: number) => Promise<void>;
   onGenerateImage: (id: number, opts: ImageGenOptions) => Promise<SocialPost | undefined>;
+  onPublishNow?: (id: number) => void;
+  publishingNow?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -471,14 +483,43 @@ function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, on
 
         {/* Card header */}
         <div className="px-4 py-3 bg-muted/30 border-b border-card-border flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold flex-shrink-0">
               {post.day}
             </div>
             <span className="text-sm font-semibold text-foreground">Day {post.day}</span>
             <PlatformBadge platform={post.platform} />
+            {(post as unknown as Record<string, unknown>).publishStatus && (post as unknown as Record<string, unknown>).publishStatus !== "draft" && (() => {
+              const status = (post as unknown as Record<string, unknown>).publishStatus as string;
+              const scheduledAt = (post as unknown as Record<string, unknown>).scheduledAt as string | null;
+              const badge = STATUS_BADGE[status] ?? STATUS_BADGE.draft;
+              return (
+                <div className="flex items-center gap-1">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge.cls}`}>
+                    {status === "scheduled" && <Clock className="w-2.5 h-2.5" />}
+                    {status === "published" && <CheckCircle2 className="w-2.5 h-2.5" />}
+                    {badge.label}
+                  </span>
+                  {scheduledAt && status === "scheduled" && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(scheduledAt).toLocaleDateString("en-SA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
+            {onPublishNow && !editing && (post as unknown as Record<string, unknown>).publishStatus !== "published" && (
+              <button
+                onClick={() => onPublishNow(post.id)}
+                disabled={publishingNow}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md border border-border transition-colors"
+              >
+                {publishingNow ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                {publishingNow ? "Publishing..." : "Publish Now"}
+              </button>
+            )}
             {editing ? (
               <>
                 <button onClick={cancel} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md border border-border transition-colors">
@@ -784,6 +825,22 @@ export default function CampaignWorkspace() {
 
   const updatePost = useUpdatePost();
   const regeneratePost = useRegeneratePost();
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [publishingPostId, setPublishingPostId] = useState<number | null>(null);
+
+  async function handlePublishNow(postId: number) {
+    setPublishingPostId(postId);
+    try {
+      const res = await fetch(`${BASE}/api/posts/${postId}/publish`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) });
+    } catch (err) {
+      alert(`Publish failed: ${err}`);
+    } finally {
+      setPublishingPostId(null);
+    }
+  }
 
   async function handleSavePost(id: number, data: Partial<SocialPost>) {
     await updatePost.mutateAsync({ id, data: { caption: data.caption, hook: data.hook, cta: data.cta, hashtags: data.hashtags, imagePrompt: data.imagePrompt } });
@@ -844,6 +901,14 @@ export default function CampaignWorkspace() {
   type CampaignPost = SocialPost & { day: number };
 
   return (
+    <>
+    <ScheduleCampaignDialog
+      campaignId={campaignId}
+      postCount={campaign.posts?.length ?? 0}
+      open={showScheduleDialog}
+      onClose={() => setShowScheduleDialog(false)}
+      onScheduled={() => queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) })}
+    />
     <div className="px-6 py-8 max-w-6xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-start gap-3">
@@ -854,7 +919,7 @@ export default function CampaignWorkspace() {
           <h1 className="text-xl font-bold text-foreground">{campaign.title}</h1>
           <p className="text-sm text-muted-foreground mt-1 leading-relaxed max-w-2xl">{campaign.strategy}</p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/40 border border-border text-xs text-muted-foreground">
             <Calendar className="w-3.5 h-3.5" />
             {campaign.days?.length ?? 0} Days
@@ -863,6 +928,19 @@ export default function CampaignWorkspace() {
             <Megaphone className="w-3.5 h-3.5" />
             {campaign.posts?.length ?? 0} Posts
           </div>
+          <Link href={`/brands/${campaign.brandId}/social-accounts`}>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
+              <Share2 className="w-3.5 h-3.5" />
+              Social Accounts
+            </button>
+          </Link>
+          <button
+            onClick={() => setShowScheduleDialog(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-sm"
+          >
+            <Send className="w-3.5 h-3.5" />
+            Schedule Campaign
+          </button>
         </div>
       </div>
 
@@ -920,10 +998,13 @@ export default function CampaignWorkspace() {
                 onSave={handleSavePost}
                 onRegenerate={handleRegeneratePost}
                 onGenerateImage={handleGenerateImage}
+                onPublishNow={handlePublishNow}
+                publishingNow={publishingPostId === post.id}
               />
             ))}
         </div>
       </div>
     </div>
+    </>
   );
 }

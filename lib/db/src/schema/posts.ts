@@ -14,6 +14,11 @@ export const postsTable = pgTable("posts", {
   imagePrompt: text("image_prompt").notNull(),
   imageUrl: text("image_url"),
   platform: text("platform").notNull().default("instagram"),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  publishStatus: text("publish_status").notNull().default("draft"),
+  publishError: text("publish_error"),
+  externalPostId: text("external_post_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

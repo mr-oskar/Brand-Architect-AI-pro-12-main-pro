@@ -9,6 +9,10 @@ export const campaignsTable = pgTable("campaigns", {
   title: text("title").notNull(),
   strategy: text("strategy").notNull(),
   days: jsonb("days").notNull().default([]),
+  scheduleStart: timestamp("schedule_start", { withTimezone: true }),
+  scheduleEnd: timestamp("schedule_end", { withTimezone: true }),
+  publishTimeHour: integer("publish_time_hour").default(9),
+  publishTimeMinute: integer("publish_time_minute").default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
