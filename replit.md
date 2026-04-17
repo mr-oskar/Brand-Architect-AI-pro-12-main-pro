@@ -282,8 +282,19 @@ Both workflows must be running. The frontend proxies API calls through the Repli
 - **Export CSV**: "Export CSV" button in campaign workspace downloads all posts as a CSV file.
 - **Background Job Store**: In-memory job store in `artifacts/api-server/src/lib/jobStore.ts`. Jobs expire after 30 minutes.
 
+## Authentication (Clerk) — Added April 2026
+
+- **Clerk Auth** provisioned via `setupClerkWhitelabelAuth()`. Keys auto-set: `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `VITE_CLERK_PUBLISHABLE_KEY`.
+- **Proxy middleware**: `artifacts/api-server/src/middlewares/clerkProxyMiddleware.ts` — mounts at `/api/__clerk`, production-only.
+- **requireAuth middleware**: `artifacts/api-server/src/middlewares/requireAuth.ts` — validates Clerk session, attaches `req.userId`.
+- **DB Schema**: `brands.userId text` column added (nullable, Clerk user ID). Migration applied.
+- **Per-user workspace isolation**: All brands, campaigns, posts filtered by `userId` from Clerk session. Data never crosses between accounts.
+- **Protected routes**: All `/api/brands`, `/api/campaigns`, `/api/posts`, `/api/dashboard` endpoints require valid Clerk session.
+- **Frontend**: `ClerkProvider` wraps the app. Landing page for unauthenticated users. `/sign-in` and `/sign-up` with branded dark theme. `Layout.tsx` shows real user avatar, name, email, and sign-out button.
+- **User management**: Use the Auth pane in the workspace toolbar to manage users, enable/disable Google login, configure branding.
+
 ## Known Issues / Tech Debt
 
 - Logo and generated images stored as base64 in PostgreSQL — fine for MVP, needs object storage (S3/R2) at scale
-- No authentication — all data is public; needs Clerk or Replit Auth for multi-tenant
 - Bulk image gen runs sequentially — could be parallelized for faster performance
+- Existing brands created before auth have NULL userId (orphaned legacy data)

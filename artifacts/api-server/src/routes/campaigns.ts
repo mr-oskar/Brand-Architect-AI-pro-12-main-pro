@@ -1,16 +1,18 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db, campaignsTable, postsTable, brandsTable } from "@workspace/db";
 import {
   GetCampaignParams,
 } from "@workspace/api-zod";
 import { asyncHandler } from "../lib/asyncHandler";
+import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 import type { BrandKit } from "../lib/ai";
 import { generateImageBuffer, generateImageWithLogoReference, type ImageSize } from "@workspace/integrations-openai-ai-server";
 
 const router: IRouter = Router();
 
-router.get("/campaigns/:id", asyncHandler(async (req, res) => {
+router.get("/campaigns/:id", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = GetCampaignParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -23,7 +25,11 @@ router.get("/campaigns/:id", asyncHandler(async (req, res) => {
     return;
   }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, campaign.brandId));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, campaign.brandId), eq(brandsTable.userId, userId)));
+  if (!brand) {
+    res.status(404).json({ error: "Campaign not found" });
+    return;
+  }
 
   const posts = await db
     .select()
@@ -45,11 +51,11 @@ router.get("/campaigns/:id", asyncHandler(async (req, res) => {
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),
     })),
-    brand: brand ? {
+    brand: {
       companyName: brand.companyName,
       logoUrl: brand.logoUrl,
       primaryColor,
-    } : null,
+    },
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
   });
@@ -57,15 +63,16 @@ router.get("/campaigns/:id", asyncHandler(async (req, res) => {
 
 // ─── Bulk Image Generation ────────────────────────────────────────────────────
 
-router.post("/campaigns/:id/generate-all-images", asyncHandler(async (req, res) => {
+router.post("/campaigns/:id/generate-all-images", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const campaignId = parseInt(String(req.params.id), 10);
   if (isNaN(campaignId)) { res.status(400).json({ error: "Invalid campaign id" }); return; }
 
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignId));
   if (!campaign) { res.status(404).json({ error: "Campaign not found" }); return; }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, campaign.brandId));
-  if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, campaign.brandId), eq(brandsTable.userId, userId)));
+  if (!brand) { res.status(404).json({ error: "Campaign not found" }); return; }
 
   const body = req.body as {
     size?: ImageSize;

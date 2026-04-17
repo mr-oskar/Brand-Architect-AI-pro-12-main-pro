@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc, count, sql, and } from "drizzle-orm";
 import { db, brandsTable, campaignsTable, postsTable } from "@workspace/db";
 import {
   CreateBrandBody,
@@ -16,13 +16,15 @@ import { generateBrandKit, generateCampaign, generateBrandStory, generateLongFor
 import { fetchIndustryTrends } from "../lib/trends";
 import { asyncHandler } from "../lib/asyncHandler";
 import { createJob, updateJob } from "../lib/jobStore";
+import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
 // ─── List brands ──────────────────────────────────────────────────────────────
 
-router.get("/brands", asyncHandler(async (_req, res) => {
+router.get("/brands", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const brands = await db
     .select({
       id: brandsTable.id,
@@ -34,19 +36,22 @@ router.get("/brands", asyncHandler(async (_req, res) => {
       updatedAt: brandsTable.updatedAt,
     })
     .from(brandsTable)
+    .where(eq(brandsTable.userId, userId))
     .orderBy(desc(brandsTable.createdAt));
   res.json(brands);
 }));
 
 // ─── Create brand ─────────────────────────────────────────────────────────────
 
-router.post("/brands", asyncHandler(async (req, res) => {
+router.post("/brands", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const parsed = CreateBrandBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   const [brand] = await db
     .insert(brandsTable)
     .values({
+      userId,
       companyName: parsed.data.companyName,
       companyDescription: parsed.data.companyDescription,
       industry: parsed.data.industry,
@@ -61,11 +66,12 @@ router.post("/brands", asyncHandler(async (req, res) => {
 
 // ─── Get brand ────────────────────────────────────────────────────────────────
 
-router.get("/brands/:id", asyncHandler(async (req, res) => {
+router.get("/brands/:id", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = GetBrandParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, params.data.id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   res.json({ ...brand, brandKit: brand.brandKit ?? null, createdAt: brand.createdAt.toISOString(), updatedAt: brand.updatedAt.toISOString() });
@@ -73,7 +79,8 @@ router.get("/brands/:id", asyncHandler(async (req, res) => {
 
 // ─── Update brand ─────────────────────────────────────────────────────────────
 
-router.patch("/brands/:id", asyncHandler(async (req, res) => {
+router.patch("/brands/:id", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = UpdateBrandParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -87,7 +94,7 @@ router.patch("/brands/:id", asyncHandler(async (req, res) => {
   if (parsed.data.websiteUrl !== undefined) updateData.websiteUrl = parsed.data.websiteUrl;
   if (parsed.data.logoUrl !== undefined) updateData.logoUrl = parsed.data.logoUrl;
 
-  const [brand] = await db.update(brandsTable).set(updateData).where(eq(brandsTable.id, params.data.id)).returning();
+  const [brand] = await db.update(brandsTable).set(updateData).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId))).returning();
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   res.json({ ...brand, brandKit: brand.brandKit ?? null, createdAt: brand.createdAt.toISOString(), updatedAt: brand.updatedAt.toISOString() });
@@ -95,11 +102,12 @@ router.patch("/brands/:id", asyncHandler(async (req, res) => {
 
 // ─── Delete brand ─────────────────────────────────────────────────────────────
 
-router.delete("/brands/:id", asyncHandler(async (req, res) => {
+router.delete("/brands/:id", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = DeleteBrandParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const [brand] = await db.delete(brandsTable).where(eq(brandsTable.id, params.data.id)).returning();
+  const [brand] = await db.delete(brandsTable).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId))).returning();
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   res.sendStatus(204);
@@ -107,11 +115,12 @@ router.delete("/brands/:id", asyncHandler(async (req, res) => {
 
 // ─── Generate brand kit ───────────────────────────────────────────────────────
 
-router.post("/brands/:id/generate-kit", asyncHandler(async (req, res) => {
+router.post("/brands/:id/generate-kit", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = GenerateBrandKitParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, params.data.id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   const { brandColors = [], targetAudience, brandValues, tonePreference } = req.body as {
@@ -121,7 +130,6 @@ router.post("/brands/:id/generate-kit", asyncHandler(async (req, res) => {
     tonePreference?: string;
   };
 
-  // Enrich company description with additional profile data
   let enrichedDescription = brand.companyDescription;
   if (targetAudience) enrichedDescription += ` Target audience: ${targetAudience}.`;
   if (brandValues && brandValues.length > 0) enrichedDescription += ` Core values: ${brandValues.join(", ")}.`;
@@ -132,7 +140,7 @@ router.post("/brands/:id/generate-kit", asyncHandler(async (req, res) => {
   const [updated] = await db
     .update(brandsTable)
     .set({ brandKit: kit, status: "kit_ready" })
-    .where(eq(brandsTable.id, params.data.id))
+    .where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)))
     .returning();
 
   res.json({ ...updated, brandKit: updated.brandKit ?? null, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
@@ -140,11 +148,12 @@ router.post("/brands/:id/generate-kit", asyncHandler(async (req, res) => {
 
 // ─── Generate / regenerate brand story ───────────────────────────────────────
 
-router.post("/brands/:id/generate-story", asyncHandler(async (req, res) => {
+router.post("/brands/:id/generate-story", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid brand id" }); return; }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   const kit = brand.brandKit as BrandKit | null;
@@ -152,12 +161,11 @@ router.post("/brands/:id/generate-story", asyncHandler(async (req, res) => {
 
   const story = await generateBrandStory(brand.companyName, brand.companyDescription, brand.industry, kit);
 
-  // Update the brandStory field inside the kit JSON
   const updatedKit = { ...kit, brandStory: story };
   const [updated] = await db
     .update(brandsTable)
     .set({ brandKit: updatedKit })
-    .where(eq(brandsTable.id, id))
+    .where(and(eq(brandsTable.id, id), eq(brandsTable.userId, userId)))
     .returning();
 
   res.json({ brandStory: story, brand: { ...updated, brandKit: updated.brandKit, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() } });
@@ -165,7 +173,8 @@ router.post("/brands/:id/generate-story", asyncHandler(async (req, res) => {
 
 // ─── Generate long-form content for brand ─────────────────────────────────────
 
-router.post("/brands/:id/generate-content", asyncHandler(async (req, res) => {
+router.post("/brands/:id/generate-content", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid brand id" }); return; }
 
@@ -175,7 +184,7 @@ router.post("/brands/:id/generate-content", asyncHandler(async (req, res) => {
     return;
   }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   const kit = brand.brandKit as BrandKit | null;
@@ -192,7 +201,8 @@ router.post("/brands/:id/generate-content", asyncHandler(async (req, res) => {
 
 // ─── Generate campaign ────────────────────────────────────────────────────────
 
-router.post("/brands/:id/generate-campaign", asyncHandler(async (req, res) => {
+router.post("/brands/:id/generate-campaign", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = GenerateCampaignParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -201,17 +211,16 @@ router.post("/brands/:id/generate-campaign", asyncHandler(async (req, res) => {
   const postCount = bodyParsed.success ? (bodyParsed.data.postCount ?? 7) : 7;
   const platforms = (req.body as { platforms?: string[] })?.platforms ?? ["instagram"];
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, params.data.id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   let kit = brand.brandKit as BrandKit | null;
 
   if (!kit) {
     kit = await generateBrandKit(brand.companyName, brand.companyDescription, brand.industry);
-    await db.update(brandsTable).set({ brandKit: kit, status: "kit_ready" }).where(eq(brandsTable.id, params.data.id));
+    await db.update(brandsTable).set({ brandKit: kit, status: "kit_ready" }).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
   }
 
-  // Fetch live industry trends and design insights before generating the campaign
   const trendData = await fetchIndustryTrends(brand.industry, brief);
 
   const campaignData = await generateCampaign(
@@ -240,7 +249,7 @@ router.post("/brands/:id/generate-campaign", asyncHandler(async (req, res) => {
     )
     .returning();
 
-  await db.update(brandsTable).set({ status: "active" }).where(eq(brandsTable.id, brand.id));
+  await db.update(brandsTable).set({ status: "active" }).where(and(eq(brandsTable.id, brand.id), eq(brandsTable.userId, userId)));
 
   res.json({
     id: campaign.id,
@@ -256,7 +265,8 @@ router.post("/brands/:id/generate-campaign", asyncHandler(async (req, res) => {
 
 // ─── Async campaign generation (returns job id immediately) ──────────────────
 
-router.post("/brands/:id/generate-campaign-async", asyncHandler(async (req, res) => {
+router.post("/brands/:id/generate-campaign-async", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = GenerateCampaignParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -265,14 +275,13 @@ router.post("/brands/:id/generate-campaign-async", asyncHandler(async (req, res)
   const postCount = bodyParsed.success ? (bodyParsed.data.postCount ?? 7) : 7;
   const platforms = (req.body as { platforms?: string[] })?.platforms ?? ["instagram"];
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, params.data.id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   const jobId = randomUUID();
-  const job = createJob(jobId, 3);
+  createJob(jobId, 3);
   res.status(202).json({ jobId });
 
-  // Run in background
   (async () => {
     try {
       updateJob(jobId, { status: "running", progress: 0 });
@@ -280,7 +289,7 @@ router.post("/brands/:id/generate-campaign-async", asyncHandler(async (req, res)
       let kit = brand.brandKit as BrandKit | null;
       if (!kit) {
         kit = await generateBrandKit(brand.companyName, brand.companyDescription, brand.industry);
-        await db.update(brandsTable).set({ brandKit: kit, status: "kit_ready" }).where(eq(brandsTable.id, params.data.id));
+        await db.update(brandsTable).set({ brandKit: kit, status: "kit_ready" }).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
       }
       updateJob(jobId, { progress: 1 });
 
@@ -313,7 +322,7 @@ router.post("/brands/:id/generate-campaign-async", asyncHandler(async (req, res)
         )
         .returning();
 
-      await db.update(brandsTable).set({ status: "active" }).where(eq(brandsTable.id, brand.id));
+      await db.update(brandsTable).set({ status: "active" }).where(and(eq(brandsTable.id, brand.id), eq(brandsTable.userId, userId)));
 
       updateJob(jobId, {
         status: "done",
@@ -337,10 +346,14 @@ router.post("/brands/:id/generate-campaign-async", asyncHandler(async (req, res)
 
 // ─── Get brand campaigns ──────────────────────────────────────────────────────
 
-router.get("/brands/:id/campaigns", asyncHandler(async (req, res) => {
+router.get("/brands/:id/campaigns", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const brandId = parseInt(raw, 10);
   if (isNaN(brandId)) { res.status(400).json({ error: "Invalid brand id" }); return; }
+
+  const [brand] = await db.select({ id: brandsTable.id }).from(brandsTable).where(and(eq(brandsTable.id, brandId), eq(brandsTable.userId, userId)));
+  if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   const campaigns = await db
     .select()
@@ -370,11 +383,12 @@ router.get("/brands/:id/campaigns", asyncHandler(async (req, res) => {
 
 // ─── Get brand stats ──────────────────────────────────────────────────────────
 
-router.get("/brands/:id/stats", asyncHandler(async (req, res) => {
+router.get("/brands/:id/stats", requireAuth, asyncHandler(async (req, res) => {
+  const userId = (req as AuthRequest).userId;
   const params = GetBrandStatsParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
-  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, params.data.id));
+  const [brand] = await db.select().from(brandsTable).where(and(eq(brandsTable.id, params.data.id), eq(brandsTable.userId, userId)));
   if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
 
   const campaigns = await db

@@ -1,11 +1,12 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Sparkles, PlusCircle, Menu, X, BarChart3,
-  Library, LayoutTemplate, ShieldCheck, ChevronRight, Bell, Moon, Sun, CalendarDays,
+  Library, LayoutTemplate, ShieldCheck, ChevronRight, Bell, Moon, Sun, CalendarDays, LogOut,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { useUser, useClerk } from "@clerk/react";
 import { getGetDashboardSummaryQueryKey, getListBrandsQueryKey } from "@workspace/api-client-react";
 
 const navSections = [
@@ -51,6 +52,45 @@ function usePrefetchCoreData() {
     prefetchIfMissing(getGetDashboardSummaryQueryKey(), "/api/dashboard/summary");
     prefetchIfMissing(getListBrandsQueryKey(), "/api/brands");
   }, [queryClient]);
+}
+
+function UserProfile() {
+  const { user, isLoaded } = useUser();
+  const { signOut } = useClerk();
+
+  if (!isLoaded || !user) return null;
+
+  const initials = user.firstName
+    ? `${user.firstName[0]}${user.lastName?.[0] ?? ""}`.toUpperCase()
+    : (user.emailAddresses[0]?.emailAddress?.[0] ?? "U").toUpperCase();
+
+  const displayName = user.fullName || user.firstName || user.emailAddresses[0]?.emailAddress?.split("@")[0] || "User";
+  const email = user.emailAddresses[0]?.emailAddress ?? "";
+
+  return (
+    <div className="px-3 pt-3 border-t border-sidebar-border/60 mt-2">
+      <div className="flex items-center gap-2.5 mb-2">
+        {user.imageUrl ? (
+          <img src={user.imageUrl} alt={displayName} className="w-7 h-7 rounded-full object-cover" />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-primary flex items-center justify-center text-[11px] font-bold text-white">
+            {initials}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[12px] font-semibold text-sidebar-foreground leading-none truncate">{displayName}</p>
+          <p className="text-[10px] text-sidebar-foreground/40 mt-0.5 truncate">{email}</p>
+        </div>
+      </div>
+      <button
+        onClick={() => signOut({ redirectUrl: "/" })}
+        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] text-sidebar-foreground/50 hover:bg-red-500/10 hover:text-red-400 transition-colors group"
+      >
+        <LogOut className="w-3.5 h-3.5 group-hover:text-red-400" />
+        Sign Out
+      </button>
+    </div>
+  );
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -147,15 +187,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             Notifications
             <span className="ml-auto w-5 h-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">3</span>
           </button>
-          <div className="px-3 pt-3 border-t border-sidebar-border/60 mt-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-primary flex items-center justify-center text-[11px] font-bold text-white">A</div>
-              <div>
-                <p className="text-[12px] font-semibold text-sidebar-foreground leading-none">Admin</p>
-                <p className="text-[10px] text-sidebar-foreground/40 mt-0.5">Pro Plan</p>
-              </div>
-            </div>
-          </div>
+          <UserProfile />
         </div>
       </aside>
 
