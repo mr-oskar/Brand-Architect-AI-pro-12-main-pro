@@ -13,6 +13,7 @@ const BrandEdit = lazy(() => import("@/pages/BrandEdit"));
 const CampaignList = lazy(() => import("@/pages/CampaignList"));
 const CampaignWorkspace = lazy(() => import("@/pages/CampaignWorkspace"));
 const Analytics = lazy(() => import("@/pages/Analytics"));
+const ContentCalendar = lazy(() => import("@/pages/ContentCalendar"));
 const Assets = lazy(() => import("@/pages/Assets"));
 const Templates = lazy(() => import("@/pages/Templates"));
 const Admin = lazy(() => import("@/pages/Admin"));
@@ -51,6 +52,7 @@ function Router() {
           <Route path="/brands/:id" component={BrandKit} />
           <Route path="/campaigns/:id" component={CampaignWorkspace} />
           <Route path="/analytics" component={Analytics} />
+          <Route path="/calendar" component={ContentCalendar} />
           <Route path="/assets" component={Assets} />
           <Route path="/templates" component={Templates} />
           <Route path="/admin" component={Admin} />

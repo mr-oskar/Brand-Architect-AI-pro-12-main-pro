@@ -9,7 +9,7 @@ import {
   ArrowLeft, Calendar, Edit3, Check, X, RefreshCw, Loader2, Hash, Image as ImageIcon,
   Megaphone, Sparkles, Wand2, Copy, CheckCircle2, Download, FileText,
   Mail, Newspaper, ChevronDown, TestTube2, Instagram, Linkedin, Twitter, Facebook,
-  ZoomIn, BarChart2, Target, Settings2, Zap, Send, Clock, Share2,
+  ZoomIn, BarChart2, Target, Settings2, Zap, Send, Clock, Share2, Eye, Images,
 } from "lucide-react";
 import type { SocialPost } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -282,6 +282,156 @@ function ImageGenDialog({
   );
 }
 
+// ─── Post Preview Dialog ──────────────────────────────────────────────────────
+
+function PostPreviewDialog({
+  open, onClose, post, brandName, brandLogoUrl, brandPrimaryColor,
+}: {
+  open: boolean;
+  onClose: () => void;
+  post: SocialPost;
+  brandName: string;
+  brandLogoUrl?: string | null;
+  brandPrimaryColor: string;
+}) {
+  const [platform, setPlatform] = useState(post.platform ?? "instagram");
+  if (!open) return null;
+
+  const platforms = [
+    { id: "instagram", label: "Instagram", icon: Instagram },
+    { id: "linkedin", label: "LinkedIn", icon: Linkedin },
+    { id: "twitter", label: "Twitter / X", icon: Twitter },
+    { id: "facebook", label: "Facebook", icon: Facebook },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-sm bg-background rounded-2xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Dialog header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Eye className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-foreground">Post Preview</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {platforms.map(({ id, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setPlatform(id)}
+                className={cn(
+                  "p-1.5 rounded-lg transition-colors",
+                  platform === id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Icon className="w-3.5 h-3.5" />
+              </button>
+            ))}
+            <button onClick={onClose} className="ml-2 text-muted-foreground hover:text-foreground">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Instagram preview */}
+        {platform === "instagram" && (
+          <div className="bg-white dark:bg-zinc-900">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{ background: brandPrimaryColor }}>
+                {brandLogoUrl ? <img src={brandLogoUrl} className="w-full h-full rounded-full object-cover" /> : brandName[0]}
+              </div>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-zinc-900 dark:text-white">{brandName.toLowerCase().replace(/\s/g, "_")}</p>
+              </div>
+              <span className="text-muted-foreground">···</span>
+            </div>
+            {post.imageUrl
+              ? <img src={post.imageUrl} className="w-full aspect-square object-cover" />
+              : <div className="aspect-square bg-gradient-to-br from-pink-100 to-purple-100 dark:from-zinc-800 dark:to-zinc-700 flex items-center justify-center"><ImageIcon className="w-10 h-10 text-pink-300" /></div>
+            }
+            <div className="px-3 pt-2 pb-3">
+              <div className="flex items-center gap-3 mb-2 text-zinc-800 dark:text-zinc-200">
+                <span>♥</span><span>💬</span><span>✈</span>
+                <span className="ml-auto">🔖</span>
+              </div>
+              <p className="text-xs text-zinc-900 dark:text-white leading-relaxed">
+                <span className="font-semibold">{brandName.toLowerCase().replace(/\s/g, "_")} </span>
+                {post.caption.slice(0, 120)}{post.caption.length > 120 ? "... more" : ""}
+              </p>
+              <p className="text-xs text-blue-500 mt-1">{post.hashtags.slice(0, 5).join(" ")}</p>
+            </div>
+          </div>
+        )}
+
+        {/* LinkedIn preview */}
+        {platform === "linkedin" && (
+          <div className="bg-[#f3f2ef] dark:bg-zinc-800 p-3 space-y-2">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl overflow-hidden shadow-sm">
+              <div className="flex items-center gap-2 p-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: brandPrimaryColor }}>
+                  {brandLogoUrl ? <img src={brandLogoUrl} className="w-full h-full rounded-full object-cover" /> : brandName[0]}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-900 dark:text-white">{brandName}</p>
+                  <p className="text-[10px] text-zinc-500">Company · Just now</p>
+                </div>
+              </div>
+              <p className="px-3 pb-3 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">{post.caption.slice(0, 200)}{post.caption.length > 200 ? "..." : ""}</p>
+              {post.imageUrl && <img src={post.imageUrl} className="w-full aspect-video object-cover" />}
+              <div className="px-3 py-2 border-t border-zinc-100 dark:border-zinc-700 flex gap-4 text-[11px] text-zinc-500">
+                <span>👍 Like</span><span>💬 Comment</span><span>🔁 Repost</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Twitter preview */}
+        {platform === "twitter" && (
+          <div className="bg-black p-3">
+            <div className="flex gap-2">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{ background: brandPrimaryColor }}>
+                {brandLogoUrl ? <img src={brandLogoUrl} className="w-full h-full rounded-full object-cover" /> : brandName[0]}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-bold text-white">{brandName}</p>
+                  <p className="text-xs text-zinc-500">@{brandName.toLowerCase().replace(/\s/g,"_")} · now</p>
+                </div>
+                <p className="text-sm text-white leading-relaxed mt-1">{post.hook}</p>
+                {post.imageUrl && <img src={post.imageUrl} className="w-full rounded-xl mt-2 aspect-video object-cover" />}
+                <div className="flex gap-5 mt-2 text-zinc-500 text-xs">
+                  <span>💬 0</span><span>🔁 0</span><span>♥ 0</span><span>📤</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Facebook preview */}
+        {platform === "facebook" && (
+          <div className="bg-[#f0f2f5] dark:bg-zinc-800 p-3">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-sm overflow-hidden">
+              <div className="flex items-center gap-2 p-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{ background: brandPrimaryColor }}>
+                  {brandLogoUrl ? <img src={brandLogoUrl} className="w-full h-full rounded-full object-cover" /> : brandName[0]}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-zinc-900 dark:text-white">{brandName}</p>
+                  <p className="text-[10px] text-zinc-500">Just now · 🌐</p>
+                </div>
+              </div>
+              <p className="px-3 pb-2 text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed">{post.caption.slice(0, 200)}{post.caption.length > 200 ? "..." : ""}</p>
+              {post.imageUrl && <img src={post.imageUrl} className="w-full aspect-video object-cover" />}
+              <div className="px-3 py-2 border-t border-zinc-100 dark:border-zinc-700 flex gap-4 text-[11px] text-zinc-500">
+                <span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
@@ -310,6 +460,7 @@ function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, on
   const [generatingContent, setGeneratingContent] = useState(false);
   const [showContentDropdown, setShowContentDropdown] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [variant, setVariant] = useState<PostVariant | null>(null);
   const [longFormContent, setLongFormContent] = useState<LongFormContent | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -427,6 +578,14 @@ function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, on
         generating={generatingImage}
         brandLogoUrl={brandLogoUrl}
         brandName={brandName}
+      />
+      <PostPreviewDialog
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        post={post}
+        brandName={brandName}
+        brandLogoUrl={brandLogoUrl}
+        brandPrimaryColor={brandPrimaryColor}
       />
 
       <div className="rounded-xl border border-card-border bg-card overflow-hidden flex flex-col">
@@ -568,6 +727,9 @@ function PostCard({ post, brandLogoUrl, brandName, brandPrimaryColor, onSave, on
                     </div>
                   )}
                 </div>
+                <button onClick={() => setShowPreview(true)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md border border-border transition-colors">
+                  <Eye className="w-3.5 h-3.5" /> Preview
+                </button>
                 <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2.5 py-1.5 rounded-md border border-border transition-colors">
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
@@ -827,6 +989,8 @@ export default function CampaignWorkspace() {
   const regeneratePost = useRegeneratePost();
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [publishingPostId, setPublishingPostId] = useState<number | null>(null);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ generated: number; total: number } | null>(null);
 
   async function handlePublishNow(postId: number) {
     setPublishingPostId(postId);
@@ -852,6 +1016,52 @@ export default function CampaignWorkspace() {
     await regeneratePost.mutateAsync({ id });
     queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) });
     queryClient.invalidateQueries({ queryKey: getGetPostQueryKey(id) });
+  }
+
+  function exportCampaignCSV() {
+    if (!campaign?.posts) return;
+    const posts = campaign.posts as (SocialPost & { day: number })[];
+    const headers = ["Day", "Platform", "Hook", "Caption", "CTA", "Hashtags", "Image Prompt", "Has Image"];
+    const rows = posts
+      .sort((a, b) => a.day - b.day)
+      .map((p) => [
+        p.day,
+        p.platform ?? "instagram",
+        `"${(p.hook ?? "").replace(/"/g, '""')}"`,
+        `"${(p.caption ?? "").replace(/"/g, '""')}"`,
+        `"${(p.cta ?? "").replace(/"/g, '""')}"`,
+        `"${(p.hashtags ?? []).join(" ").replace(/"/g, '""')}"`,
+        `"${(p.imagePrompt ?? "").replace(/"/g, '""')}"`,
+        p.imageUrl ? "Yes" : "No",
+      ]);
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${campaign.title?.replace(/\s+/g, "-") ?? "campaign"}-posts.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleBulkGenerateImages() {
+    if (!campaign?.posts) return;
+    setBulkGenerating(true);
+    const total = (campaign.posts as SocialPost[]).filter((p) => !p.imageUrl).length;
+    setBulkProgress({ generated: 0, total });
+    try {
+      const res = await fetch(`${BASE}/api/campaigns/${campaignId}/generate-all-images`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skipExisting: true }),
+      });
+      const data = await res.json() as { generated: number; total: number };
+      setBulkProgress({ generated: data.generated, total: data.total });
+      queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(campaignId) });
+    } finally {
+      setBulkGenerating(false);
+      setTimeout(() => setBulkProgress(null), 4000);
+    }
   }
 
   async function handleGenerateImage(id: number, opts: ImageGenOptions): Promise<SocialPost | undefined> {
@@ -928,6 +1138,27 @@ export default function CampaignWorkspace() {
             <Megaphone className="w-3.5 h-3.5" />
             {campaign.posts?.length ?? 0} Posts
           </div>
+          <button
+            onClick={exportCampaignCSV}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export CSV
+          </button>
+          <button
+            onClick={handleBulkGenerateImages}
+            disabled={bulkGenerating}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/40 bg-primary/5 text-xs text-primary hover:bg-primary/10 transition-colors disabled:opacity-60"
+          >
+            {bulkGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Images className="w-3.5 h-3.5" />}
+            {bulkGenerating
+              ? bulkProgress ? `${bulkProgress.generated}/${bulkProgress.total} images...` : "Generating..."
+              : "Generate All Images"
+            }
+          </button>
+          {bulkProgress && !bulkGenerating && (
+            <span className="text-xs text-green-600 font-medium">{bulkProgress.generated} images generated ✓</span>
+          )}
           <Link href={`/brands/${campaign.brandId}/social-accounts`}>
             <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors">
               <Share2 className="w-3.5 h-3.5" />

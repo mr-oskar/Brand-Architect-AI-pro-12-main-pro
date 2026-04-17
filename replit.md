@@ -272,10 +272,18 @@ Both workflows must be running. The frontend proxies API calls through the Repli
 
 ---
 
+## Recent Improvements (April 2026)
+
+- **Rate Limiting**: `express-rate-limit` added. General: 120 req/min. AI endpoints: 15 req/min. Trust proxy set for Replit.
+- **Async Campaign Generation**: `POST /api/brands/:id/generate-campaign-async` returns `{ jobId }` immediately. Poll `GET /api/jobs/:id` for status (pending/running/done/failed + result).
+- **Bulk Image Generation**: `POST /api/campaigns/:id/generate-all-images` generates images for all posts in a campaign. Optional `skipExisting: true`, `size`, `logoDataUrl`.
+- **Content Calendar**: New page at `/calendar`. Monthly calendar view showing posts distributed from campaign creation date.
+- **Post Preview Dialog**: Each post card has a "Preview" button showing realistic mock preview for Instagram, LinkedIn, Twitter, Facebook.
+- **Export CSV**: "Export CSV" button in campaign workspace downloads all posts as a CSV file.
+- **Background Job Store**: In-memory job store in `artifacts/api-server/src/lib/jobStore.ts`. Jobs expire after 30 minutes.
+
 ## Known Issues / Tech Debt
 
 - Logo and generated images stored as base64 in PostgreSQL — fine for MVP, needs object storage (S3/R2) at scale
 - No authentication — all data is public; needs Clerk or Replit Auth for multi-tenant
-- No rate limiting on API — add `express-rate-limit` before public exposure
-- Campaign generation takes 20-40s — currently blocks with a loading overlay; should be background job with polling
-- Bulk image generation (all posts at once) not implemented yet
+- Bulk image gen runs sequentially — could be parallelized for faster performance

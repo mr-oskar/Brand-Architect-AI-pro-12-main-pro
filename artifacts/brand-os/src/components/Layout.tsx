@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Sparkles, PlusCircle, Menu, X, BarChart3,
-  Library, LayoutTemplate, ShieldCheck, ChevronRight, Bell, Moon, Sun,
+  Library, LayoutTemplate, ShieldCheck, ChevronRight, Bell, Moon, Sun, CalendarDays,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ const navSections = [
     label: "Tools",
     items: [
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/calendar", label: "Content Calendar", icon: CalendarDays },
       { href: "/assets", label: "Asset Library", icon: Library },
       { href: "/templates", label: "Templates", icon: LayoutTemplate },
     ],

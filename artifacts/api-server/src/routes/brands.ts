@@ -15,6 +15,8 @@ import {
 import { generateBrandKit, generateCampaign, generateBrandStory, generateLongFormContent, type BrandKit } from "../lib/ai";
 import { fetchIndustryTrends } from "../lib/trends";
 import { asyncHandler } from "../lib/asyncHandler";
+import { createJob, updateJob } from "../lib/jobStore";
+import { randomUUID } from "crypto";
 
 const router: IRouter = Router();
 
@@ -250,6 +252,87 @@ router.post("/brands/:id/generate-campaign", asyncHandler(async (req, res) => {
     createdAt: campaign.createdAt.toISOString(),
     updatedAt: campaign.updatedAt.toISOString(),
   });
+}));
+
+// ─── Async campaign generation (returns job id immediately) ──────────────────
+
+router.post("/brands/:id/generate-campaign-async", asyncHandler(async (req, res) => {
+  const params = GenerateCampaignParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const bodyParsed = GenerateCampaignBody.safeParse(req.body ?? {});
+  const brief = bodyParsed.success ? (bodyParsed.data.brief ?? undefined) : undefined;
+  const postCount = bodyParsed.success ? (bodyParsed.data.postCount ?? 7) : 7;
+  const platforms = (req.body as { platforms?: string[] })?.platforms ?? ["instagram"];
+
+  const [brand] = await db.select().from(brandsTable).where(eq(brandsTable.id, params.data.id));
+  if (!brand) { res.status(404).json({ error: "Brand not found" }); return; }
+
+  const jobId = randomUUID();
+  const job = createJob(jobId, 3);
+  res.status(202).json({ jobId });
+
+  // Run in background
+  (async () => {
+    try {
+      updateJob(jobId, { status: "running", progress: 0 });
+
+      let kit = brand.brandKit as BrandKit | null;
+      if (!kit) {
+        kit = await generateBrandKit(brand.companyName, brand.companyDescription, brand.industry);
+        await db.update(brandsTable).set({ brandKit: kit, status: "kit_ready" }).where(eq(brandsTable.id, params.data.id));
+      }
+      updateJob(jobId, { progress: 1 });
+
+      const trendData = await fetchIndustryTrends(brand.industry, brief);
+      updateJob(jobId, { progress: 2 });
+
+      const campaignData = await generateCampaign(
+        brand.companyName, brand.companyDescription, brand.industry, kit, brief, postCount, platforms,
+        trendData.summary
+      );
+
+      const [campaign] = await db
+        .insert(campaignsTable)
+        .values({ brandId: brand.id, title: campaignData.title, strategy: campaignData.strategy, days: campaignData.days })
+        .returning();
+
+      const insertedPosts = await db
+        .insert(postsTable)
+        .values(
+          campaignData.posts.map((p) => ({
+            campaignId: campaign.id,
+            day: p.day,
+            caption: p.caption,
+            hook: p.hook,
+            cta: p.cta,
+            hashtags: p.hashtags,
+            imagePrompt: p.imagePrompt,
+            platform: p.platform,
+          }))
+        )
+        .returning();
+
+      await db.update(brandsTable).set({ status: "active" }).where(eq(brandsTable.id, brand.id));
+
+      updateJob(jobId, {
+        status: "done",
+        progress: 3,
+        result: {
+          id: campaign.id,
+          brandId: campaign.brandId,
+          title: campaign.title,
+          strategy: campaign.strategy,
+          days: campaign.days,
+          posts: insertedPosts.map((p) => ({ ...p, createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString() })),
+          createdAt: campaign.createdAt.toISOString(),
+          updatedAt: campaign.updatedAt.toISOString(),
+        },
+      });
+    } catch (err) {
+      updateJob(jobId, { status: "failed", error: err instanceof Error ? err.message : "Unknown error" });
+    }
+  })();
 }));
 
 // ─── Get brand campaigns ──────────────────────────────────────────────────────
