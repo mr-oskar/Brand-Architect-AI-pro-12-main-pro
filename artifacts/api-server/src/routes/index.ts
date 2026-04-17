@@ -6,6 +6,7 @@ import postsRouter from "./posts";
 import dashboardRouter from "./dashboard";
 import socialRouter from "./social";
 import jobsRouter from "./jobs";
+import imagesRouter from "./images";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(postsRouter);
 router.use(dashboardRouter);
 router.use(socialRouter);
 router.use(jobsRouter);
+router.use(imagesRouter);
 
 export default router;

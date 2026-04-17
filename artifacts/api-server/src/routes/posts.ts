@@ -12,6 +12,7 @@ import { openai, generateImageBuffer, generateImageWithLogoReference, type Image
 import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 import { generatePostVariant, type BrandKit } from "../lib/ai";
+import { uploadImageBuffer, storagePathToUrl } from "../lib/imageStorage";
 
 const router: IRouter = Router();
 
@@ -145,7 +146,8 @@ router.post("/posts/:id/generate-image", requireAuth, asyncHandler(async (req, r
     imageBuffer = await generateImageBuffer(finalPrompt, size);
   }
 
-  const imageUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
+  const objectPath = await uploadImageBuffer(imageBuffer, "image/png");
+  const imageUrl = storagePathToUrl(objectPath);
 
   const [updated] = await db
     .update(postsTable)

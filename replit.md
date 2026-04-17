@@ -293,8 +293,28 @@ Both workflows must be running. The frontend proxies API calls through the Repli
 - **Frontend**: `ClerkProvider` wraps the app. Landing page for unauthenticated users. `/sign-in` and `/sign-up` with branded dark theme. `Layout.tsx` shows real user avatar, name, email, and sign-out button.
 - **User management**: Use the Auth pane in the workspace toolbar to manage users, enable/disable Google login, configure branding.
 
+## Image Storage (Object Storage — April 2026)
+
+AI-generated post images are now stored in Replit Object Storage (GCS-backed) instead of base64 in PostgreSQL.
+
+**Architecture:**
+- `artifacts/api-server/src/lib/imageStorage.ts` — Server-side helper:
+  - `uploadImageBuffer(buffer, contentType)` — uploads Buffer directly to GCS, returns `/objects/uploads/<uuid>`
+  - `streamStoredImage(objectPath)` — streams image from GCS to response
+  - `storagePathToUrl(objectPath)` — converts `/objects/uploads/<uuid>` → `/api/storage/images/objects/uploads/<uuid>`
+  - `isStoragePath(value)` — returns true if value is a stored path (not base64)
+- `artifacts/api-server/src/routes/images.ts` — Serves stored images:
+  - `GET /api/storage/images/objects/uploads/:id` — streams image from GCS with 1-year cache headers
+- `posts.imageUrl` column now stores `/api/storage/images/objects/uploads/<uuid>` (a regular URL) instead of base64
+
+**Environment Variables (auto-set by Object Storage setup):**
+- `DEFAULT_OBJECT_STORAGE_BUCKET_ID` — GCS bucket ID
+- `PUBLIC_OBJECT_SEARCH_PATHS` — search paths for public assets
+- `PRIVATE_OBJECT_DIR` — directory for private objects
+
 ## Known Issues / Tech Debt
 
-- Logo and generated images stored as base64 in PostgreSQL — fine for MVP, needs object storage (S3/R2) at scale
+- Brand logos still stored as base64 in PostgreSQL — future work to migrate to Object Storage
 - Bulk image gen runs sequentially — could be parallelized for faster performance
 - Existing brands created before auth have NULL userId (orphaned legacy data)
+- Old posts with base64 imageUrl still work (displayed directly by browser)

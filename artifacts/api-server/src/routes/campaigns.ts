@@ -8,6 +8,7 @@ import { asyncHandler } from "../lib/asyncHandler";
 import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
 import type { BrandKit } from "../lib/ai";
 import { generateImageBuffer, generateImageWithLogoReference, type ImageSize } from "@workspace/integrations-openai-ai-server";
+import { uploadImageBuffer, storagePathToUrl } from "../lib/imageStorage";
 
 const router: IRouter = Router();
 
@@ -123,7 +124,8 @@ router.post("/campaigns/:id/generate-all-images", requireAuth, asyncHandler(asyn
       } else {
         imageBuffer = await generateImageBuffer(prompt, size);
       }
-      const imageUrl = `data:image/png;base64,${imageBuffer.toString("base64")}`;
+      const objectPath = await uploadImageBuffer(imageBuffer, "image/png");
+      const imageUrl = storagePathToUrl(objectPath);
       await db.update(postsTable).set({ imageUrl }).where(eq(postsTable.id, post.id));
       generated++;
     } catch {
